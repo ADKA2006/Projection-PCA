@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCA Projection Animation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        canvas {
+            border: 2px solid #000000;
+            background: white;
+            display: block;
+            margin: 20px auto;
+            border-radius: 20px;
+        }
+
+        .controls {
+            margin: 20px 0;
+            vertical-align: middle;
+            border-radius: 20px;
+            font-size: large;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            background: #333;
+            color: white;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background: #555;
+        }
+
+        .legend {
+            margin-top: 20px;
+            font-size: large;
+            color: #666;
+        }
+
+        .legend span {
+            margin: 0 15px;
+        }
+
+        .dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 5px;
+            vertical-align: middle;
+            border-radius: 50%;
+        }
+
+        .speed-control {
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        .speed-control input {
+            width: 150px;
+            vertical-align: middle;
+        }
+
+        .speed-control span {
+            margin-left: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" style="text-decoration: none; color: rgb(0, 221, 255); font-size: larger;">&#8592; Back to Home</a>
+        <h1>PCA Projection Animation</h1>
+
+        <canvas id="canvas" width="650" height="750"></canvas>
+
+        <div class="controls">
+            <label for="numPoints">Number of Points: </label>
+            <input type="number" id="numPoints" min="10" max="500" value="100" style="width: 80px; padding: 5px;">
+            <button onclick="generateData()" style="padding: 5px 15px; margin-left: 10px;vertical-align: middle;font-size: large;">Generate</button>
+        </div>
+
+        <div class="controls">
+            <button onclick="startAnimation()" style="background-color: #10b981;font-size: large;">Play</button>
+            <button onclick="pauseAnimation()" style="background-color: #f59e0b;font-size: large;">Pause</button>
+            <button onclick="resetAnimation()" style="background-color: #ef4444;font-size: large;">Reset</button>
+        </div>
+
+        <div class="controls speed-control">
+            <label for="speed" style="font-size: large;">Speed: </label>
+            <input type="range" id="speed" min="0.5" max="3" step="0.5" value="1" onchange="updateSpeed()">
+            <span id="speedVal" style="font-size: large;">1x</span>
+        </div>
+
+
+        <div class="legend">
+            <span><span class="dot" style="background: #3b82f6;"></span>Original Data</span>
+            <span><span class="dot" style="background: #000000;"></span>Mean (Origin)</span>
+            <span><span class="dot" style="background: #10b981;"></span>Principal Component</span>
+        </div>
+    </div>
+
+
+
+    
+    <script>
+        let data = null;
+        let prog = 0;
+        let anim = false;
+        let speed = 1;
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        function genNorNum() {
+            let u1 = Math.random();
+            let u2 = Math.random();
+            return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);   //BM method
+        }
+
+        function genMulVarNor(mean, cov, n, seed) {
+            let state = seed;
+            const seededRandom = () => {
+                state = (state * 9301 + 49297) % 233280;
+                return state / 233280;
+            };
+            let L = [[Math.sqrt(cov[0][0]), 0], 
+                     [cov[1][0] / Math.sqrt(cov[0][0]), Math.sqrt(cov[1][1] - cov[1][0] * cov[1][0] / cov[0][0])]];
+            
+            let data = [];
+            for (let i = 0; i < n; i++) {
+                let z1 = genNorNum();
+                let z2 = genNorNum();
+                let x = mean[0] + L[0][0] * z1;
+                let y = mean[1] + L[1][0] * z1 + L[1][1] * z2;
+                data.push([x, y]);
+            }
+            return data;
+        }
+
+        function computeCov(data) {
+            let n = data.length;
+            let mean = [0, 0];
+            for (let i = 0; i < n; i++) {
+                mean[0] += data[i][0];
+                mean[1] += data[i][1];
+            }
+            mean[0] /= n;
+            mean[1] /= n;
+
+            let cov = [[0, 0], [0, 0]];
+            for (let i = 0; i < n; i++) {
+                let x = data[i][0] - mean[0];
+                let y = data[i][1] - mean[1];
+                cov[0][0] += x * x;
+                cov[0][1] += x * y;
+                cov[1][0] += x * y;
+                cov[1][1] += y * y;
+            }
+            return [[cov[0][0] / n, cov[0][1] / n], [cov[1][0] / n, cov[1][1] / n]];
+        }
+
+        function eigenDecomp(cov) {
+            let a = cov[0][0];
+            let b = cov[0][1];
+            let d = cov[1][1];
+            
+            let trace = a + d;
+            let det = a * d - b * b;
+            let disc = trace * trace / 4 - det;
+            
+            let eig1 = trace / 2 + Math.sqrt(disc);
+            let eig2 = trace / 2 - Math.sqrt(disc);
+            let v1, v2;
+            if (Math.abs(b) > 1e-10) {
+                v1 = [b, eig1 - a];
+            } else if (Math.abs(eig1 - a) > 1e-10) {
+                v1 = [b, eig1 - a];
+            } else {
+                v1 = [1, 0];
+            }
+            let len1 = Math.sqrt(v1[0] * v1[0] + v1[1] * v1[1]);
+            v1 = [v1[0] / len1, v1[1] / len1];
+            if (Math.abs(b) > 1e-10) {
+                v2 = [b, eig2 - a];
+            } else if (Math.abs(eig2 - a) > 1e-10) {
+                v2 = [b, eig2 - a];
+            } else {
+                v2 = [0, 1];
+            }
+            let len2 = Math.sqrt(v2[0] * v2[0] + v2[1] * v2[1]);
+            v2 = [v2[0] / len2, v2[1] / len2];
+            
+            return {vals: [eig1, eig2], vecs: [v1, v2]};
+        }
+
+        function generateData() {
+            let numPoints = parseInt(document.getElementById('numPoints').value) || 100;
+            let rawData = genMulVarNor([0, 0], [[3, 1], [1, 2]], numPoints, 203);
+
+            let mean = [0, 0];
+            for (let i = 0; i < rawData.length; i++) {
+                mean[0] += rawData[i][0];
+                mean[1] += rawData[i][1];
+            }
+            mean[0] /= rawData.length;
+            mean[1] /= rawData.length;
+            
+            let centered = [];  // Centering the data
+            for (let i = 0; i < rawData.length; i++) {
+                centered.push([rawData[i][0] - mean[0], rawData[i][1] - mean[1]]);
+            }
+            let cov = computeCov(centered);  
+            
+            // Eigendecomposition
+            let eig = eigenDecomp(cov);
+            let vals = eig.vals;
+            let vecs = eig.vecs;
+            if (vals[0] < vals[1]) {
+                [vals[0], vals[1]] = [vals[1], vals[0]];
+                [vecs[0], vecs[1]] = [vecs[1], vecs[0]];
+            }
+            let projected = [];
+            for (let i = 0; i < centered.length; i++) {
+                let proj1 = centered[i][0] * vecs[0][0] + centered[i][1] * vecs[0][1];
+                let proj2 = centered[i][0] * vecs[1][0] + centered[i][1] * vecs[1][1];
+                projected.push([proj1, proj2]);
+            }
+            data = {
+                original: centered,
+                projected: projected,
+                pc1: vecs[0],
+                pc2: vecs[1],
+                eig_val: vals
+            };
+            
+            prog = 0;
+            anim = false;
+            draw();
+        }
+        /*
+        async function init() {
+            const res = await fetch('pca_data.json');
+            data = await res.json();
+            draw();
+        }
+        */
+
+
+
+
+        function normalise(v) {
+            const len = Math.sqrt(v[0] * v[0] + v[1] * v[1]);
+            return [v[0] / len, v[1] / len];
+        }
+
+        function scale(p) {
+            const s = 65; 
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            return [cx + p[0] * s, cy - p[1] * s];
+        }
+
+        function drawGrid() {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#eee';
+            ctx.lineWidth = 1;
+            const gridScale = 75;
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            
+            for (let i = -4; i <= 4; i++) {
+                let p1 = [cx + i * gridScale, cy - (-4) * gridScale];
+                let p2 = [cx + i * gridScale, cy - 4 * gridScale];
+                ctx.beginPath();
+                ctx.moveTo(p1[0], p1[1]);
+                ctx.lineTo(p2[0], p2[1]);
+                ctx.stroke();
+                p1 = [cx + (-4) * gridScale, cy - i * gridScale];
+                p2 = [cx + 4 * gridScale, cy - i * gridScale];
+                ctx.beginPath();
+                ctx.moveTo(p1[0], p1[1]);
+                ctx.lineTo(p2[0], p2[1]);
+                ctx.stroke();
+            }
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 2;
+            let p1 = [cx + (-4) * gridScale, cy];
+            let p2 = [cx + 4 * gridScale, cy];
+            ctx.beginPath();
+            ctx.moveTo(p1[0], p1[1]);
+            ctx.lineTo(p2[0], p2[1]);
+            ctx.stroke();
+
+            p1 = [cx, cy - (-4) * gridScale];
+            p2 = [cx, cy - 4 * gridScale];
+            ctx.beginPath();
+            ctx.moveTo(p1[0], p1[1]);
+            ctx.lineTo(p2[0], p2[1]);
+            ctx.stroke();
+        }
+
+        function draw() {
+            if (!data) return;
+            drawGrid();
+            ctx.fillStyle = '#000000';
+            let origin = scale([0, 0]);
+            ctx.beginPath();
+            ctx.arc(origin[0], origin[1], 6, 0, 2 * Math.PI);
+            ctx.fill();
+            let rotationAngle = prog * 2 * Math.PI;
+            let axisLength = 4.65   ; 
+            let currentDir = [Math.cos(rotationAngle), Math.sin(rotationAngle)];
+            let pcAngle = Math.atan2(data.pc1[1], data.pc1[0]);
+
+
+            // Angle difference calculation and PC check for alignment
+            let angleDiffPos = Math.abs(rotationAngle - pcAngle);
+            angleDiffPos = Math.min(angleDiffPos, 2 * Math.PI - angleDiffPos);
+            let oppositeAngle = pcAngle + Math.PI;
+            let angleDiffOpposite = Math.abs(rotationAngle - oppositeAngle);
+            angleDiffOpposite = Math.min(angleDiffOpposite, 2 * Math.PI - angleDiffOpposite);
+            let finalAngleDiff = Math.min(angleDiffPos, angleDiffOpposite);
+            let isAligned = finalAngleDiff < 0.15; 
+            ctx.strokeStyle = isAligned ? '#10b981' : '#e91e63';
+            ctx.lineWidth = isAligned ? 4 : 3;     
+            let ax_start = scale([currentDir[0] * -axisLength, currentDir[1] * -axisLength]);
+            let ax_end = scale([currentDir[0] * axisLength, currentDir[1] * axisLength]);
+            ctx.beginPath();
+            ctx.moveTo(ax_start[0], ax_start[1]);
+            ctx.lineTo(ax_end[0], ax_end[1]);
+            ctx.stroke();
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 3]);
+            for (let i = 0; i < data.original.length; i++) {
+                let point = data.original[i];
+                let dotProduct = point[0] * currentDir[0] + point[1] * currentDir[1];
+                let projection = [dotProduct * currentDir[0], dotProduct * currentDir[1]];
+                let pointScaled = scale(point);
+                let projScaled = scale(projection);  
+                ctx.beginPath();
+                ctx.moveTo(pointScaled[0], pointScaled[1]);
+                ctx.lineTo(projScaled[0], projScaled[1]);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#3b82f6';
+            for (let i = 0; i < data.original.length; i++) {
+                let p = scale(data.original[i]);
+                ctx.beginPath();
+                ctx.arc(p[0], p[1], 5, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+            
+            if (isAligned) {
+                ctx.fillStyle = '#10b981';
+                ctx.font = 'bold 16px Arial';
+            } else {
+                ctx.fillStyle = '#e91e63';
+                ctx.font = '12px Arial';
+            }
+        }
+
+
+
+        function startAnimation() {
+            if (anim) return;
+            anim = true;
+            animate();
+        }
+
+
+
+        function pauseAnimation() {
+            anim = false;
+        }
+
+        function resetAnimation() {
+            anim = false;
+            prog = 0;
+            draw();
+        }
+
+
+
+
+        function updateSpeed() {
+            speed = parseFloat(document.getElementById('speed').value);
+            document.getElementById('speedVal').textContent = speed + 'x';
+        }
+
+        function animate() {
+            if (!anim) return;
+            prog += 0.001 * speed;
+            if (prog > 1) {
+                prog = 0; 
+            }
+            draw();
+            requestAnimationFrame(animate);
+        }
+    </script>
+</body>
+</html>
