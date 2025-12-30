@@ -111,6 +111,7 @@
             <button onclick="startAnimation()" style="background-color: #10b981;font-size: large;">Play</button>
             <button onclick="pauseAnimation()" style="background-color: #f59e0b;font-size: large;">Pause</button>
             <button onclick="resetAnimation()" style="background-color: #ef4444;font-size: large;">Reset</button>
+            <button onclick="togglePC()" id="pcToggleBtn" style="background-color: #8b5cf6;font-size: large;">PC2</button>
         </div>
 
         <div class="controls speed-control">
@@ -135,6 +136,7 @@
         let prog = 0;
         let anim = false;
         let speed = 1;
+        let currentPC = 1;
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
 
@@ -335,11 +337,12 @@
             ctx.beginPath();
             ctx.arc(origin[0], origin[1], 6, 0, 2 * Math.PI);
             ctx.fill();
+            
             let rotationAngle = prog * 2 * Math.PI;
-            let axisLength = 4.65   ; 
+            let axisLength = 4.65;
             let currentDir = [Math.cos(rotationAngle), Math.sin(rotationAngle)];
-            let pcAngle = Math.atan2(data.pc1[1], data.pc1[0]);
-
+            let selectedPC = currentPC === 1 ? data.pc1 : data.pc2;
+            let pcAngle = Math.atan2(selectedPC[1], selectedPC[0]);
 
             // Angle difference calculation and PC check for alignment
             let angleDiffPos = Math.abs(rotationAngle - pcAngle);
@@ -398,6 +401,14 @@
             animate();
         }
 
+        function togglePC() {
+            currentPC = currentPC === 1 ? 2 : 1;
+            document.getElementById('pcToggleBtn').textContent = currentPC === 1 ? 'PC2' : 'PC1';
+            prog = 0;
+            anim = false;
+            draw();
+        }
+
 
 
         function pauseAnimation() {
@@ -427,6 +438,11 @@
             draw();
             requestAnimationFrame(animate);
         }
+
+        window.addEventListener('load', () => {
+            drawGrid();
+        })
+
     </script>
 </body>
 </html>
