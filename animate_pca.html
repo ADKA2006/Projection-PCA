@@ -108,6 +108,29 @@
         </div>
 
         <div class="controls">
+            <label for="distribution">Distribution: </label>
+            <select id="distribution" onchange="toggleDistribution()" style="padding: 5px; font-size: large;">
+                <option value="normal">Normal Distribution</option>
+                <option value="uniform">Uniform Distribution</option>
+            </select>
+        </div>
+
+        <div class="controls" id="normalControls">
+            <label>Mean: </label>
+            <input type="number" id="meanX" value="0" step="0.1" style="width: 70px; padding: 5px;"> X
+            <input type="number" id="meanY" value="0" step="0.1" style="width: 70px; padding: 5px; margin-left: 10px;"> Y
+            <span style="margin-left: 20px;">Variance: </span>
+            <input type="number" id="varX" value="3" step="0.1" style="width: 70px; padding: 5px;"> X
+            <input type="number" id="varY" value="2" step="0.1" style="width: 70px; padding: 5px; margin-left: 10px;"> Y
+        </div>
+
+        <div class="controls" id="uniformControls" style="display: none;">
+            <label>Range: </label>
+            <input type="number" id="uniformMin" value="-3" step="0.1" style="width: 70px; padding: 5px;"> Min
+            <input type="number" id="uniformMax" value="3" step="0.1" style="width: 70px; padding: 5px; margin-left: 10px;"> Max
+        </div>
+
+        <div class="controls">
             <button onclick="startAnimation()" style="background-color: #10b981;font-size: large;">Play</button>
             <button onclick="pauseAnimation()" style="background-color: #f59e0b;font-size: large;">Pause</button>
             <button onclick="resetAnimation()" style="background-color: #ef4444;font-size: large;">Reset</button>
@@ -144,6 +167,16 @@
             let u1 = Math.random();
             let u2 = Math.random();
             return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);   //BM method
+        }
+
+        function genUniformData(min, max, n) {
+            let data = [];
+            for (let i = 0; i < n; i++) {
+                let x = Math.random() * (max - min) + min;
+                let y = Math.random() * (max - min) + min;
+                data.push([x, y]);
+            }
+            return data;
         }
 
         function genMulVarNor(mean, cov, n, seed) {
@@ -224,7 +257,24 @@
 
         function generateData() {
             let numPoints = parseInt(document.getElementById('numPoints').value) || 100;
-            let rawData = genMulVarNor([0, 0], [[3, 1], [1, 2]], numPoints, 203);
+            let distributionType = document.getElementById('distribution').value;
+            let rawData;
+            
+            if (distributionType === 'normal') {
+                let meanX = parseFloat(document.getElementById('meanX').value) || 0;
+                let meanY = parseFloat(document.getElementById('meanY').value) || 0;
+                let varX = parseFloat(document.getElementById('varX').value) || 3;
+                let varY = parseFloat(document.getElementById('varY').value) || 2;
+                let cov = [[varX, 0.5 * Math.sqrt(varX * varY)], 
+                           [0.5 * Math.sqrt(varX * varY), varY]];
+                
+                let randomSeed = Math.floor(Math.random() * 10000);
+                rawData = genMulVarNor([meanX, meanY], cov, numPoints, randomSeed);
+            } else {
+                let min = parseFloat(document.getElementById('uniformMin').value) || -3;
+                let max = parseFloat(document.getElementById('uniformMax').value) || 3;
+                rawData = genUniformData(min, max, numPoints);
+            }
 
             let mean = [0, 0];
             for (let i = 0; i < rawData.length; i++) {
@@ -399,6 +449,17 @@
             if (anim) return;
             anim = true;
             animate();
+        }
+
+        function toggleDistribution() {
+            let distType = document.getElementById('distribution').value;
+            if (distType === 'normal') {
+                document.getElementById('normalControls').style.display = 'block';
+                document.getElementById('uniformControls').style.display = 'none';
+            } else {
+                document.getElementById('normalControls').style.display = 'none';
+                document.getElementById('uniformControls').style.display = 'block';
+            }
         }
 
         function togglePC() {
